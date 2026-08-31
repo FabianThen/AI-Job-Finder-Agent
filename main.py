@@ -24,8 +24,8 @@ client = OpenAI(
 CATEGORIES = [
     "Remote Software Engineer Jobs",
     "Remote Full Stack Developer Jobs",
-    "Software Engineer Jobs Connecticut",
-    "Software Engineer Jobs New York",
+    "Software Engineer Jobs Connecticut Hybrid",
+    "Software Engineer Jobs Connecticut On-Site",
 ]
 
 

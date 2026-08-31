@@ -6,11 +6,11 @@ An autonomous AI agent that searches for the latest software engineering job pos
 
 Every run, the agent:
 
-1. Searches multiple job categories (Software Engineer, Backend Developer, AI Engineer, Full Stack Developer) using the Tavily search API
+1. Searches multiple job categories: remote Software Engineer and Full-Stack Developer roles, plus Connecticut-based hybrid and on-site Software Engineer roles using the Tavily search API
 2. Uses an LLM (via Groq) to extract structured details, company, location, experience level, and salary, from each raw job posting
 3. Filters out any jobs that were already sent in a previous run, using a local JSON memory file
 4. Formats a clean, deduplicated report and emails it via SMTP
-5. Can run once on demand or continuously on a daily schedule (5:00 AM) using APScheduler
+5. Can run once on demand or continuously on a daily schedule (6:00 AM) using APScheduler
 
 ## Architecture
 
