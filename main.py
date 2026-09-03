@@ -90,6 +90,8 @@ def build_report(jobs: list) -> str:
         lines.append(f"Experience: {job['experience']}")
         lines.append(f"Salary: {job['salary']}")
         lines.append(f"Fit Score: {job.get('skill_match_score', 'N/A')}/10")
+        status_tag = "Verified live" if job.get("verified_live") else "Unverified — check before applying"
+        lines.append(f"Status: {status_tag}")
         lines.append(f"Apply Link: {job['url']}")
         lines.append("")
         lines.append("---------------------------------")
@@ -126,6 +128,7 @@ def run_workflow():
                 "experience": evaluation.get("experience", "Not specified"),
                 "salary": evaluation.get("salary", "Not specified"),
                 "skill_match_score": evaluation.get("skill_match_score", "N/A"),
+                "verified_live": job.get("verified_live", False),
             })
 
     if not all_jobs:
