@@ -14,3 +14,4 @@ wheels/
 logs/launchd_stdout.log
 logs/launchd_stderr.log
 .DS_Store
+resume_profile.txt

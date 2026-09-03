@@ -4,33 +4,35 @@ import logging
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from tools.tavily_tool import search_jobs
+from tools.tavily_tool import search_jobs_multi_site
 from tools.email_tool import send_email
 from tools.memory import is_duplicate, mark_as_sent
 from tools.scheduler import start_scheduler
 
-# Setup
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 load_dotenv()
 
-# Groq AI Client
 client = OpenAI(
     api_key=os.getenv("GROQ_API_KEY"),
     base_url="https://api.groq.com/openai/v1"
 )
 
-# ---------- 4 Fixed Categories ----------
-CATEGORIES = [
-    "Remote Software Engineer Jobs",
-    "Remote Full Stack Developer Jobs",
-    "Software Engineer Jobs Connecticut Hybrid",
-    "Software Engineer Jobs Connecticut On-Site",
+with open("resume_profile.txt") as f:
+    RESUME_PROFILE = f.read()
+
+# role, location pairs — searched across all configured job sites
+SEARCH_TARGETS = [
+    ("Full Stack Software Engineer", "Remote"),
+    ("Software Engineer", "Connecticut Hybrid"),
+    ("Software Engineer", "Connecticut On-Site"),
 ]
 
+MIN_SALARY = 70000
 
-def ai_extract_details(title: str, content: str) -> dict:
-    """Use Groq AI to extract structured job details from raw content."""
+
+def ai_evaluate_job(title: str, content: str) -> dict:
+    """Use Groq to extract details AND score fit against the candidate profile."""
     try:
         response = client.chat.completions.create(
             model="openai/gpt-oss-20b",
@@ -39,17 +41,19 @@ def ai_extract_details(title: str, content: str) -> dict:
                 {
                     "role": "system",
                     "content": (
-                        "Extract job details from the given text. "
-                        "Return ONLY a valid JSON object with these keys: "
-                        "company, location, experience, salary. "
-                        "If a field is not found, use 'Not specified'. "
+                        "You evaluate job postings against a candidate profile.\n"
+                        f"CANDIDATE PROFILE:\n{RESUME_PROFILE}\n\n"
+                        "Given a job posting's title and content, return ONLY a valid JSON object with these keys:\n"
+                        "company, location, experience, salary (numeric estimate or 'Not specified'), "
+                        "salary_meets_minimum (true/false/null if unknown), "
+                        "location_matches (true if Remote OR Connecticut, else false), "
+                        "skill_match_score (0-10, how well candidate's skills fit this role), "
+                        "is_real_posting (true if this is a specific job posting for one role at one company, "
+                        "false if it is a job board search/category/listing page).\n"
                         "Return ONLY the JSON, no other text."
                     )
                 },
-                {
-                    "role": "user",
-                    "content": f"Title: {title}\nContent: {content}"
-                }
+                {"role": "user", "content": f"Title: {title}\nContent: {content}"}
             ]
         )
         raw = response.choices[0].message.content.strip()
@@ -58,17 +62,23 @@ def ai_extract_details(title: str, content: str) -> dict:
             parsed = parsed[0] if parsed else {}
         return parsed
     except Exception as e:
-        logger.warning(f"AI extraction failed: {e}")
-        return {
-            "company": "Not specified",
-            "location": "Not specified",
-            "experience": "Not specified",
-            "salary": "Not specified"
-        }
+        logger.warning(f"AI evaluation failed: {e}")
+        return {}
+
+
+def passes_filters(eval_result: dict) -> bool:
+    if not eval_result.get("is_real_posting", True):
+        return False
+    if eval_result.get("location_matches") is False:
+        return False
+    if eval_result.get("salary_meets_minimum") is False:
+        return False
+    if eval_result.get("skill_match_score", 10) is not None and eval_result.get("skill_match_score", 10) < 4:
+        return False
+    return True
 
 
 def build_report(jobs: list) -> str:
-    """Build a clean, fixed-format report string using Python (not AI)."""
     lines = []
     for idx, job in enumerate(jobs, 1):
         lines.append(f"{idx}.")
@@ -77,53 +87,50 @@ def build_report(jobs: list) -> str:
         lines.append(f"Location: {job['location']}")
         lines.append(f"Experience: {job['experience']}")
         lines.append(f"Salary: {job['salary']}")
+        lines.append(f"Fit Score: {job.get('skill_match_score', 'N/A')}/10")
         lines.append(f"Apply Link: {job['url']}")
         lines.append("")
         lines.append("---------------------------------")
         lines.append("")
-
     lines.append(f"Total Jobs Found: {len(jobs)}")
     return "\n".join(lines)
 
 
 def run_workflow():
-    """Search 4 categories, AI extracts details, Python formats report, email it."""
     logger.info("Starting daily AI job search...")
-
     all_jobs = []
 
-    # Step 1 — Search each category (1 result each)
-    for category in CATEGORIES:
-        logger.info(f"Searching: {category}")
-        results = search_jobs(category)
+    for role, location in SEARCH_TARGETS:
+        logger.info(f"Searching: {role} — {location}")
+        results = search_jobs_multi_site(role, location)
         for job in results:
-            if not is_duplicate(job["url"]):
-                # Step 2 — AI extracts structured details
-                logger.info(f"AI extracting details for: {job['title']}")
-                details = ai_extract_details(job["title"], job["content"])
-
-                all_jobs.append({
-                    "title": job["title"],
-                    "url": job["url"],
-                    "company": details.get("company", "Not specified"),
-                    "location": details.get("location", "Not specified"),
-                    "experience": details.get("experience", "Not specified"),
-                    "salary": details.get("salary", "Not specified"),
-                })
+            if is_duplicate(job["url"]):
+                continue
+            logger.info(f"Evaluating: {job['title']}")
+            import time; time.sleep(2)
+            evaluation = ai_evaluate_job(job["title"], job["content"])
+            if not passes_filters(evaluation):
+                logger.info(f"Filtered out: {job['title']}")
+                continue
+            all_jobs.append({
+                "title": job["title"],
+                "url": job["url"],
+                "company": evaluation.get("company", "Not specified"),
+                "location": evaluation.get("location", "Not specified"),
+                "experience": evaluation.get("experience", "Not specified"),
+                "salary": evaluation.get("salary", "Not specified"),
+                "skill_match_score": evaluation.get("skill_match_score", "N/A"),
+            })
 
     if not all_jobs:
-        logger.info("No new jobs found today. Skipping email.")
+        logger.info("No new matching jobs found today. Skipping email.")
         return
 
-    # Step 3 — Python formats the report (guaranteed clean)
     report = build_report(all_jobs)
     logger.info("Report ready!")
-
-    # Step 4 — Send email
     logger.info("Sending email...")
     success = send_email(report)
 
-    # Step 5 — Save to memory
     if success:
         sent_urls = [job["url"] for job in all_jobs]
         mark_as_sent(sent_urls)
@@ -134,6 +141,4 @@ def run_workflow():
 
 if __name__ == "__main__":
     logger.info("=== AI Job Finder Agent ===")
-
-    # --- PRODUCTION MODE: run daily at 8 AM ---
     start_scheduler(run_workflow)
