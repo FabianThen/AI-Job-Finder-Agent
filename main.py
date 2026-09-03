@@ -30,6 +30,12 @@ SEARCH_TARGETS = [
 
 MIN_SALARY = 70000
 
+import re
+SENIORITY_PATTERN = re.compile(r"\b(senior|sr\.?|staff|principal|lead|director|vp|head of)\b", re.IGNORECASE)
+
+def is_senior_title(title: str) -> bool:
+    return bool(SENIORITY_PATTERN.search(title))
+
 
 def ai_evaluate_job(title: str, content: str) -> dict:
     """Use Groq to extract details AND score fit against the candidate profile."""
@@ -114,6 +120,9 @@ def run_workflow():
             if norm_url in seen_this_run or is_duplicate(job["url"]):
                 continue
             seen_this_run.add(norm_url)
+            if is_senior_title(job["title"]):
+                logger.info(f"Skipping senior-level title: {job['title']}")
+                continue
             logger.info(f"Evaluating: {job['title']}")
             import time; time.sleep(2)
             evaluation = ai_evaluate_job(job["title"], job["content"])

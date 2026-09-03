@@ -40,6 +40,9 @@ def _is_individual_posting(title: str, url: str) -> bool:
     for pat in AGGREGATOR_PATTERNS:
         if re.search(pat, t) or re.search(pat, u):
             return False
+    # ZipRecruiter category/search pages have no job ID param — real postings do
+    if "ziprecruiter.com" in u and "jid=" not in u:
+        return False
     return True
 
 
