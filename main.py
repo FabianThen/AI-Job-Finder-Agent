@@ -100,12 +100,16 @@ def run_workflow():
     logger.info("Starting daily AI job search...")
     all_jobs = []
 
+    seen_this_run = set()
     for role, location in SEARCH_TARGETS:
         logger.info(f"Searching: {role} — {location}")
         results = search_jobs_multi_site(role, location)
         for job in results:
-            if is_duplicate(job["url"]):
+            from tools.memory import _normalize
+            norm_url = _normalize(job["url"])
+            if norm_url in seen_this_run or is_duplicate(job["url"]):
                 continue
+            seen_this_run.add(norm_url)
             logger.info(f"Evaluating: {job['title']}")
             import time; time.sleep(2)
             evaluation = ai_evaluate_job(job["title"], job["content"])
