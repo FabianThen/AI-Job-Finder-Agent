@@ -20,6 +20,7 @@ AGGREGATOR_PATTERNS = [
 
 # Phrases that indicate the posting page itself says the job is dead/removed
 DEAD_PHRASES = [
+    "sorry, this job was removed",
     "no longer available",
     "job posting has been removed",
     "job id provided may not be valid",
@@ -135,7 +136,7 @@ def search_jobs(query: str, max_results: int = 4) -> list:
             jobs.append({
                 "title": title,
                 "url": url,
-                "content": r.get("content", "No description")[:600],
+                "content": r.get("content", "No description")[:2000],
                 "verified_live": status == "live",
             })
         return jobs

@@ -49,6 +49,11 @@ def ai_evaluate_job(title: str, content: str) -> dict:
                     "content": (
                         "You evaluate job postings against a candidate profile.\n"
                         f"CANDIDATE PROFILE:\n{RESUME_PROFILE}\n\n"
+                        "IMPORTANT: Extract ALL fields ONLY from the job posting text below. NEVER use the "
+                        "candidate profile above to fill in job fields (it exists only for fit-scoring). The "
+                        "'experience' field must describe what THIS POSTING requires, as literally stated in "
+                        "its own text -- if the posting does not state a requirement, use 'Not specified'. Never "
+                        "output the candidate's own years of experience for this field.\n"
                         "Given a job posting's title and content, return ONLY a valid JSON object with these keys:\n"
                         "company, location, experience, salary (numeric estimate or 'Not specified'), "
                         "salary_meets_minimum (true/false/null if unknown), "
