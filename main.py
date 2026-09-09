@@ -24,8 +24,10 @@ with open("resume_profile.txt") as f:
 # role, location pairs — searched across all configured job sites
 SEARCH_TARGETS = [
     ("Full Stack Software Engineer", "Remote"),
+    ("Software Developer", "Remote"),
+    ("Junior Backend Developer", "Remote"),
     ("Software Engineer", "Connecticut Hybrid"),
-    ("Software Engineer", "Connecticut On-Site"),
+    ("Full Stack Developer", "Connecticut On-Site"),
 ]
 
 MIN_SALARY = 70000
