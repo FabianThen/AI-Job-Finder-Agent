@@ -59,7 +59,7 @@ def ai_evaluate_job(title: str, content: str) -> dict:
                         "Given a job posting's title and content, return ONLY a valid JSON object with these keys:\n"
                         "company, location, experience, salary (numeric estimate or 'Not specified'), "
                         "salary_meets_minimum (true/false/null if unknown), "
-                        "location_matches (true if Remote OR Connecticut, else false), "
+                        "location_matches (true ONLY if the job is Remote, OR the posting explicitly lists a real Connecticut city as the work location, such as Hartford, Stamford, Berlin, or New Haven CT. Do NOT infer Connecticut just because the letters CT appear in a team name, department name, or acronym such as CT Office or CTO. If uncertain, return false), "
                         "required_years_experience (numeric estimate of MINIMUM years required, or null if not stated), "
                         "experience_mismatch (true if the posting requires meaningfully more years of professional experience than the candidate profile describes, else false), "
                         "skill_match_score (0-10, how well candidate's skills fit this role; if experience_mismatch is true, this score must be capped at 5 regardless of skill keyword overlap), "
