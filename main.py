@@ -31,6 +31,7 @@ SEARCH_TARGETS = [
 ]
 
 MIN_SALARY = 70000
+MIN_FIT_SCORE = 7  # only email strong matches; raise=stricter, lower=more results
 
 import re
 SENIORITY_PATTERN = re.compile(r"\b(senior|sr\.?|staff|principal|lead|director|vp|head of)\b", re.IGNORECASE)
@@ -59,10 +60,11 @@ def ai_evaluate_job(title: str, content: str) -> dict:
                         "Given a job posting's title and content, return ONLY a valid JSON object with these keys:\n"
                         "company, location, experience, salary (numeric estimate or 'Not specified'), "
                         "salary_meets_minimum (true/false/null if unknown), "
-                        "location_matches (true ONLY if the job is Remote, OR the posting explicitly lists a real Connecticut city as the work location, such as Hartford, Stamford, Berlin, or New Haven CT. Do NOT infer Connecticut just because the letters CT appear in a team name, department name, or acronym such as CT Office or CTO. If uncertain, return false), "
+                        "location_matches (true ONLY if the role is based in the UNITED STATES -- specifically: remote for workers located in the US (US-based or US-wide remote), OR the posting explicitly lists a real Connecticut city as the work location such as Hartford, Stamford, Berlin, or New Haven CT. Return FALSE if the posting location or region is outside the US (e.g. APAC, EMEA, India, Europe, UK, Canada, LATAM, or remote tied to a non-US country), EVEN IF it says Remote. Do NOT infer Connecticut just because the letters CT appear in a team name, department, or acronym such as CT Office or CTO. If the location is unclear or appears non-US, return false), "
                         "required_years_experience (numeric estimate of MINIMUM years required, or null if not stated), "
                         "experience_mismatch (true if the posting requires meaningfully more years of professional experience than the candidate profile describes, else false), "
                         "skill_match_score (0-10, how well candidate's skills fit this role; if experience_mismatch is true, this score must be capped at 5 regardless of skill keyword overlap), "
+                        "employment_type (one of 'full-time', 'contract', 'internship', or 'unknown', based ONLY on the posting text; treat contract-to-hire, temp, and staffing-agency contract roles as 'contract'), "
                         "is_real_posting (true if this is a specific job posting for one role at one company, "
                         "false if it is a job board search/category/listing page).\n"
                         "Return ONLY the JSON, no other text."
@@ -88,7 +90,10 @@ def passes_filters(eval_result: dict) -> bool:
         return False
     if eval_result.get("salary_meets_minimum") is False:
         return False
-    if eval_result.get("skill_match_score", 10) is not None and eval_result.get("skill_match_score", 10) < 4:
+    if eval_result.get("employment_type") in ("contract", "internship"):
+        return False
+    score = eval_result.get("skill_match_score")
+    if score is not None and score < MIN_FIT_SCORE:
         return False
     return True
 

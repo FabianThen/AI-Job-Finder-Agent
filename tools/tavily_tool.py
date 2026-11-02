@@ -48,17 +48,28 @@ def _is_individual_posting(title: str, url: str) -> bool:
 
 
 def _extract_posting_age_days(text: str):
-    """Look for 'Posted X days ago' style phrases. Returns int days, or None if not found."""
+    """Estimate how old a posting is from 'X days/weeks/months ago' phrases.
+    Returns int days, or None if not found."""
     t = text.lower()
+    m = re.search(r'(\d+)\+?\s*months?\s+ago', t)
+    if m:
+        return int(m.group(1)) * 30
+    m = re.search(r'(\d+)\+?\s*weeks?\s+ago', t)
+    if m:
+        return int(m.group(1)) * 7
     m = re.search(r'posted\s+(\d+)\+?\s*days?\s+ago', t)
     if m:
         return int(m.group(1))
     m = re.search(r'(\d+)\+?\s*days?\s+ago', t)
     if m:
         return int(m.group(1))
+    if re.search(r'\ba month ago\b|\blast month\b', t):
+        return 30
+    if re.search(r'\ba week ago\b', t):
+        return 7
     if re.search(r'posted\s+today|posted\s+just\s+now', t):
         return 0
-    if 'posted yesterday' in t:
+    if 'posted yesterday' in t or 'a day ago' in t:
         return 1
     return None
 
@@ -123,7 +134,19 @@ def search_jobs(query: str, max_results: int = 4) -> list:
         for r in results:
             title = r.get("title", "Unknown")
             url = r.get("url", "")
+            snippet = r.get("content") or ""
             if not _is_individual_posting(title, url):
+                continue
+
+            # Snippet-based staleness/dead check -- catches postings whose live page
+            # cannot be fetched (e.g. LinkedIn bot-blocks) using Tavily's scraped text.
+            snip_low = snippet.lower()
+            if any(phrase in snip_low for phrase in DEAD_PHRASES):
+                print(f"Skipping dead posting (snippet): {title}")
+                continue
+            snip_age = _extract_posting_age_days(snippet)
+            if snip_age is not None and snip_age > MAX_POSTING_AGE_DAYS:
+                print(f"Skipping stale posting (snippet ~{snip_age}d): {title}")
                 continue
 
             status, reason = _verify_posting_live(url)
